@@ -2,6 +2,9 @@ name: 'version-control'
 description: 'Appleyes semantic versions bases on labels'
 author: '4Source'
 
+permissions:
+  contents: write
+  
 # Define your inputs here.
 inputs:
   owner: 
