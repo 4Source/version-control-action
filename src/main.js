@@ -77,7 +77,7 @@ async function run() {
       repo
     });
 
-    core.debug(`Tags: ${tags}`);
+    core.debug(`Tags: ${JSON.stringify(tags)}`);
 
     const hasTag = (await exec('git tag')).stdout.trim();
     let tag = '';
