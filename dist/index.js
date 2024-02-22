@@ -33516,28 +33516,41 @@ async function run() {
     core.debug(GITHUB_REF);
     core.debug(GITHUB_SHA);
 
+    const { data: latest } = await octokit.rest.repos.getLatestRelease({
+      owner,
+      repo
+    });
+
+    core.debug(`Latest: ${latest}`);
+
     const { data: tags } = await octokit.rest.repos.listTags({
       owner,
       repo
     });
 
-    core.debug(`Tags: ${JSON.stringify(tags)}`);
+    const tagNames = tags.map(value => {
+      return value.name;
+    });
 
-    const hasTag = (await exec('git tag')).stdout.trim();
+    tagNames.sort((v1, v2) => semver.compare(v1, v2));
+
+    core.debug(`Tags: ${tagNames}`);
+
     let tag = '';
 
-    if (hasTag) {
-      const previousTagSha = (
-        await exec('git rev-list --tags --topo-order --max-count=1')
-      ).stdout.trim();
-      tag = (await exec(`git describe --tags ${previousTagSha}`)).stdout.trim();
+    if (tagNames.length > 0) {
+      core.debug(`Latest: ${tagNames[0]}`);
+      // const previousTagSha = (
+      //   await exec('git rev-list --tags --topo-order --max-count=1')
+      // ).stdout.trim();
+      // tag = (await exec(`git describe --tags ${previousTagSha}`)).stdout.trim();
 
-      core.debug(`Previous tag is: ${tag}`);
+      // core.debug(`Previous tag is: ${tag}`);
 
-      if (previousTagSha === GITHUB_SHA) {
-        core.info('No new commits since previous tag. Skipping...');
-        return;
-      }
+      // if (previousTagSha === GITHUB_SHA) {
+      //   core.info('No new commits since previous tag. Skipping...');
+      //   return;
+      // }
     } else {
       tag = '0.0.0';
 
@@ -33550,23 +33563,23 @@ async function run() {
       issue_number
     });
 
-    const labelsNames = labels.map(value => {
+    const labelNames = labels.map(value => {
       return value.name;
     });
 
-    core.debug(`Labels at pull request: ${labelsNames}`);
+    core.debug(`Labels at pull request: ${labelNames}`);
 
     let bump = '';
     let identifier = '';
     let preRelease = false;
 
     // Is major change
-    if (labelsNames.includes(label_major)) {
-      if (labelsNames.includes(label_beta)) {
+    if (labelNames.includes(label_major)) {
+      if (labelNames.includes(label_beta)) {
         bump = 'premajor';
         identifier = 'beta';
         preRelease = true;
-      } else if (labelsNames.includes(label_alpha)) {
+      } else if (labelNames.includes(label_alpha)) {
         bump = 'premajor';
         identifier = 'alpha';
         preRelease = true;
@@ -33575,12 +33588,12 @@ async function run() {
       }
     }
     // Is minor change
-    else if (labelsNames.includes(label_minor)) {
-      if (labelsNames.includes(label_beta)) {
+    else if (labelNames.includes(label_minor)) {
+      if (labelNames.includes(label_beta)) {
         bump = 'preminor';
         identifier = 'beta';
         preRelease = true;
-      } else if (labelsNames.includes(label_alpha)) {
+      } else if (labelNames.includes(label_alpha)) {
         bump = 'preminor';
         identifier = 'alpha';
         preRelease = true;
@@ -33589,12 +33602,12 @@ async function run() {
       }
     }
     // Is patch change
-    else if (labelsNames.includes(label_patch)) {
-      if (labelsNames.includes(label_beta)) {
+    else if (labelNames.includes(label_patch)) {
+      if (labelNames.includes(label_beta)) {
         bump = 'prepatch';
         identifier = 'beta';
         preRelease = true;
-      } else if (labelsNames.includes(label_alpha)) {
+      } else if (labelNames.includes(label_alpha)) {
         bump = 'prepatch';
         identifier = 'alpha';
         preRelease = true;
@@ -33603,7 +33616,7 @@ async function run() {
       }
     }
     // Is docs change
-    else if (labelsNames.includes(label_docs)) {
+    else if (labelNames.includes(label_docs)) {
       core.info('Is docs change do not requiere a new version. Skipping...');
       return;
     } else {
