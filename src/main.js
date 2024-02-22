@@ -170,6 +170,8 @@ async function run() {
     const newVersion = `${semver.inc(tag, bump, identifier)}`;
     const newTag = `${tag_prefix}${newVersion}`;
 
+    core.info(`New version: ${newVersion}`);
+
     core.setOutput('new_version', newVersion);
     core.setOutput('new_tag', newTag);
 
