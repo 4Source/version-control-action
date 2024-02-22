@@ -33552,13 +33552,17 @@ async function run() {
 
     const octokit = new github.getOctokit(github_token);
 
-    const labels = octokit.rest.issues.listLabelsOnIssue({
+    const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
       owner,
       repo: repository,
       issue_number: pr_number
     });
 
-    core.debug(`Labels: ${labels}`);
+    core.debug(
+      `Labels: ${labels.map(value => {
+        return value.name;
+      })}`
+    );
 
     // // for some reason the commits start and end with a `'` on the CI so we ignore it
     // const commits = logs
