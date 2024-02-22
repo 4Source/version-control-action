@@ -1,7 +1,6 @@
 env:
   commonjs: true
   es6: true
-  jest: true
   node: true
 
 globals:
@@ -21,19 +20,11 @@ parserOptions:
   ecmaVersion: 2023
   sourceType: module
   requireConfigFile: false
-  babelOptions:
-    babelrc: false
-    configFile: false
-    presets:
-      - jest
 
-plugins:
-  - jest
 
 extends:
   - eslint:recommended
   - plugin:github/recommended
-  - plugin:jest/recommended
 
 rules:
   {
