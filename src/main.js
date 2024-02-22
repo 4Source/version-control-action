@@ -151,7 +151,7 @@ async function run() {
       core.info('Is docs change do not requiere a new version. Skipping...');
       return;
     } else {
-      core.error('None of the version labels are set in the pull request!');
+      core.setFailed('None of the version labels are set in the pull request!');
     }
 
     const newVersion = `${semver.inc(tag, bump, identifier)}`;
@@ -168,7 +168,7 @@ async function run() {
     ).stdout.trim();
 
     if (tagAlreadyExists) {
-      core.warning('This tag already exists. Skipping...');
+      core.setFailed('This tag already exists. Skipping...');
       return;
     }
 
