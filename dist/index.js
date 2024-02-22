@@ -28932,8 +28932,8 @@ function wrappy (fn, cb) {
 /***/ 1713:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-const core = __nccwpck_require__(2186)
-const github = __nccwpck_require__(5438)
+const core = __nccwpck_require__(2186);
+const github = __nccwpck_require__(5438);
 
 /**
  * The main function for the action.
@@ -28941,31 +28941,31 @@ const github = __nccwpck_require__(5438)
  */
 async function run() {
   try {
-    const owner = core.getInput('owner', { required: true })
-    const repo = core.getInput('repo', { required: true })
-    const pr_number = core.getInput('pr_number', { required: true })
-    const token = core.getInput('token', { required: true })
+    const owner = core.getInput('owner', { required: true });
+    const repo = core.getInput('repo', { required: true });
+    const pr_number = core.getInput('pr_number', { required: true });
+    const token = core.getInput('token', { required: true });
 
-    const octokit = new github.getOctokit(token)
+    const octokit = new github.getOctokit(token);
 
     const { data: changedFiles } = await octokit.rest.pulls.listFiles({
       owner,
       repo,
       pull_number: pr_number
-    })
+    });
 
     let diffData = {
       additions: 0,
       deletions: 0,
       changes: 0
-    }
+    };
 
     diffData = changedFiles.reduce((acc, file) => {
-      acc.additions += file.additions
-      acc.deletions += file.deletions
-      acc.changes += file.changes
-      return acc
-    }, diffData)
+      acc.additions += file.additions;
+      acc.deletions += file.deletions;
+      acc.changes += file.changes;
+      return acc;
+    }, diffData);
 
     await octokit.rest.issues.createComment({
       owner,
@@ -28977,27 +28977,27 @@ async function run() {
       - ${diffData.deletions} deletions \n
       - ${diffData.changes} changes \n
       `
-    })
+    });
 
     for (const file of changedFiles) {
-      const fileExtension = file.filename.split('.').pop()
-      let label = ''
+      const fileExtension = file.filename.split('.').pop();
+      let label = '';
       switch (fileExtension) {
         case 'md':
-          label = 'markdown'
-          break
+          label = 'markdown';
+          break;
         case 'js':
-          label = 'javascript'
-          break
+          label = 'javascript';
+          break;
         case 'ts':
-          label = 'typescript'
-          break
+          label = 'typescript';
+          break;
         case '':
-          label = 'noextension'
-          break
+          label = 'noextension';
+          break;
         default:
-          label = 'nomatch'
-          break
+          label = 'nomatch';
+          break;
       }
 
       await octokit.rest.issues.addLabels({
@@ -29005,17 +29005,17 @@ async function run() {
         repo,
         issue_number: pr_number,
         labels: [label]
-      })
+      });
     }
   } catch (error) {
     // Fail the workflow run if an error occurs
-    core.setFailed(error.message)
+    core.setFailed(error.message);
   }
 }
 
 module.exports = {
   run
-}
+};
 
 
 /***/ }),
@@ -30907,9 +30907,9 @@ var __webpack_exports__ = {};
 /**
  * The entrypoint for the action.
  */
-const { run } = __nccwpck_require__(1713)
+const { run } = __nccwpck_require__(1713);
 
-run()
+run();
 
 })();
 
