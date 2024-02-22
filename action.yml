@@ -39,7 +39,7 @@ inputs:
   label_docs: 
     description: 'The name of the label that will trigger a docs version change. (default: `docs`)'
     required: false
-    default: 'docs'
+    default: 'documentation'
   tag_prefix:
     description: "A prefix to the tag name (default: `v`)."
     required: false

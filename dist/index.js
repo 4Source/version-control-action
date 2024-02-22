@@ -33615,6 +33615,7 @@ async function run() {
     const newTag = `${tag_prefix}${newVersion}`;
 
     core.info(`New version: ${newVersion}`);
+    core.info(`New tag: ${newTag}`);
 
     core.setOutput('new_version', newVersion);
     core.setOutput('new_tag', newTag);
