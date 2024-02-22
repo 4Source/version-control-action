@@ -33516,7 +33516,7 @@ async function run() {
 
     await exec('git fetch --tags');
 
-    core.debug(`Tags: ${await exec('git tag')}`);
+    core.debug(`Tags: ${JSON.stringify(await exec('git tag'))}`);
 
     const hasTag = (await exec('git tag')).stdout.trim();
     let tag = '';
