@@ -10,6 +10,10 @@ on:
 jobs:
   versioning:
     runs-on: ubuntu-latest
+    permissions: 
+        pull-requests: write
+        contents: write
+
     steps: 
       - name: Checkout
         id: checkout
