@@ -33443,9 +33443,42 @@ function wrappy (fn, cb) {
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const core = __nccwpck_require__(2186);
-const exec = __nccwpck_require__(1514);
+const _exec = __nccwpck_require__(1514);
 const github = __nccwpck_require__(5438);
 const semver = __nccwpck_require__(1383);
+
+async function exec(command) {
+  let stdout = '';
+  let stderr = '';
+
+  try {
+    const options = {
+      listeners: {
+        stdout: data => {
+          stdout += data.toString();
+        },
+        stderr: data => {
+          stderr += data.toString();
+        }
+      }
+    };
+
+    const code = await _exec(command, undefined, options);
+
+    return {
+      code,
+      stdout,
+      stderr
+    };
+  } catch (err) {
+    return {
+      code: 1,
+      stdout,
+      stderr,
+      error: err
+    };
+  }
+}
 
 /**
  * The main function for the action.

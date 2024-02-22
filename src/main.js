@@ -1,7 +1,40 @@
 const core = require('@actions/core');
-const exec = require('@actions/exec');
+const _exec = require('@actions/exec');
 const github = require('@actions/github');
 const semver = require('semver');
+
+async function exec(command) {
+  let stdout = '';
+  let stderr = '';
+
+  try {
+    const options = {
+      listeners: {
+        stdout: data => {
+          stdout += data.toString();
+        },
+        stderr: data => {
+          stderr += data.toString();
+        }
+      }
+    };
+
+    const code = await _exec(command, undefined, options);
+
+    return {
+      code,
+      stdout,
+      stderr
+    };
+  } catch (err) {
+    return {
+      code: 1,
+      stdout,
+      stderr,
+      error: err
+    };
+  }
+}
 
 /**
  * The main function for the action.
