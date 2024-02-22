@@ -33487,6 +33487,9 @@ async function exec(command) {
 async function run() {
   try {
     const github_token = core.getInput('github_token', { required: true });
+    const owner = core.getInput('owner', { required: true });
+    const repository = core.getInput('repository', { required: true });
+    const pr_number = core.getInput('pr_number', { required: true });
     const label_major = core.getInput('label_major', { required: false });
     const label_minor = core.getInput('label_minor', { required: false });
     const label_patch = core.getInput('label_patch', { required: false });
@@ -33496,15 +33499,18 @@ async function run() {
     const tag_prefix = core.getInput('tag_prefix', { required: false });
     const dry_run = core.getInput('dry_run', { required: false });
 
-    core.debug('github_token', github_token);
-    core.debug('label_major', label_major);
-    core.debug('label_minor', label_minor);
-    core.debug('label_patch', label_patch);
-    core.debug('label_beta', label_beta);
-    core.debug('label_alpha', label_alpha);
-    core.debug('label_docs', label_docs);
-    core.debug('tag_prefix', tag_prefix);
-    core.debug('dry_run', dry_run);
+    core.debug(`github_token: ${github_token}`);
+    core.debug(`owner: ${owner}`);
+    core.debug(`repository: ${repository}`);
+    core.debug(`pr_number: ${pr_number}`);
+    core.debug(`label_major: ${label_major}`);
+    core.debug(`label_minor: ${label_minor}`);
+    core.debug(`label_patch: ${label_patch}`);
+    core.debug(`label_beta: ${label_beta}`);
+    core.debug(`label_alpha: ${label_alpha}`);
+    core.debug(`label_docs: ${label_docs}`);
+    core.debug(`tag_prefix: ${tag_prefix}`);
+    core.debug(`dry_run: ${dry_run}`);
 
     const { GITHUB_REF, GITHUB_SHA } = process.env;
 
@@ -33543,6 +33549,16 @@ async function run() {
 
       core.debug('No previous tag.');
     }
+
+    const octokit = new github.getOctokit(github_token);
+
+    const labels = octokit.rest.issues.listLabelsOnIssue({
+      owner,
+      repo: repository,
+      issue_number: pr_number
+    });
+
+    core.debug(`Labels: ${labels}`);
 
     // // for some reason the commits start and end with a `'` on the CI so we ignore it
     // const commits = logs

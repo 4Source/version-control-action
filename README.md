@@ -19,6 +19,9 @@ jobs:
         uses: 4Source/version-control-action@v1
         with: 
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          owner: ${{ github.repository_owner }}
+          repository:  ${{ github.event.repository.name }}
+          pr_number: ${{ github.event.number }}
 ```
 ## Inputs
 - **github_token** (_requiered_) - Required for permission to tag the repository. Usually ``${{ secrets.GITHUB_TOKEN }}``.

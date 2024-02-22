@@ -50,4 +50,7 @@ jobs:
         uses: ./
         with: 
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          owner: ${{ github.repository_owner }}
+          repository:  ${{ github.event.repository.name }}
+          pr_number: ${{ github.event.number }}
           dry_run: true
