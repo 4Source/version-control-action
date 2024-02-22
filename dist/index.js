@@ -33516,46 +33516,22 @@ async function run() {
     core.debug(GITHUB_REF);
     core.debug(GITHUB_SHA);
 
-    const { data: latest } = await octokit.rest.repos.getLatestRelease({
+    const { data: releases } = await octokit.rest.repos.listReleases({
       owner,
       repo
     });
 
-    core.debug(`Latest: ${JSON.stringify(latest)}`);
-
-    const { data: tags } = await octokit.rest.repos.listTags({
-      owner,
-      repo
-    });
-
-    const tagNames = tags.map(value => {
-      return value.name;
-    });
-
-    tagNames.sort((v1, v2) => semver.compare(v1, v2));
-
-    core.debug(`Tags: ${tagNames}`);
+    core.debug(`Latest: ${JSON.stringify(releases)}`);
 
     let tag = '';
 
-    if (tagNames.length > 0) {
-      core.debug(`Latest: ${tagNames[0]}`);
-      // const previousTagSha = (
-      //   await exec('git rev-list --tags --topo-order --max-count=1')
-      // ).stdout.trim();
-      // tag = (await exec(`git describe --tags ${previousTagSha}`)).stdout.trim();
+    // if (latest) {
+    //   tag = latest;
+    // } else {
+    tag = '0.0.0';
 
-      // core.debug(`Previous tag is: ${tag}`);
-
-      // if (previousTagSha === GITHUB_SHA) {
-      //   core.info('No new commits since previous tag. Skipping...');
-      //   return;
-      // }
-    } else {
-      tag = '0.0.0';
-
-      core.debug('No previous tag.');
-    }
+    //   core.debug('No previous tag.');
+    // }
 
     const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
       owner,
