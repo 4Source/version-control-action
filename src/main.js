@@ -179,7 +179,7 @@ async function run() {
 
     core.debug(`Creating annotated tag.`);
 
-    const tagCreateResponse = await octokit.git.createTag({
+    const tagCreateResponse = await octokit.rest.git.createTag({
       ...github.context.repo,
       tag: newTag,
       message: newTag,
@@ -189,7 +189,7 @@ async function run() {
 
     core.debug(`Pushing annotated tag to the repo`);
 
-    await octokit.git.createRef({
+    await octokit.rest.git.createRef({
       ...github.context.repo,
       ref: `refs/tags/${newTag}`,
       sha: tagCreateResponse.data.sha
