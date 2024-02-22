@@ -29000,7 +29000,7 @@ async function run() {
           break
       }
 
-      await octokit.rest.issues.addLabel({
+      await octokit.rest.issues.addLabels({
         owner,
         repo,
         issue_number: pr_number,
