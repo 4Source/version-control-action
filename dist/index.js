@@ -33595,7 +33595,7 @@ async function run() {
       core.info('Is docs change do not requiere a new version. Skipping...');
       return;
     } else {
-      core.error('None of the version labels are set in the pull request!');
+      core.setFailed('None of the version labels are set in the pull request!');
     }
 
     const newVersion = `${semver.inc(tag, bump, identifier)}`;
@@ -33612,7 +33612,7 @@ async function run() {
     ).stdout.trim();
 
     if (tagAlreadyExists) {
-      core.warning('This tag already exists. Skipping...');
+      core.setFailed('This tag already exists. Skipping...');
       return;
     }
 
@@ -33623,7 +33623,7 @@ async function run() {
 
     core.debug(`Creating annotated tag.`);
 
-    const tagCreateResponse = await octokit.git.createTag({
+    const tagCreateResponse = await octokit.rest.git.createTag({
       ...github.context.repo,
       tag: newTag,
       message: newTag,
@@ -33633,7 +33633,7 @@ async function run() {
 
     core.debug(`Pushing annotated tag to the repo`);
 
-    await octokit.git.createRef({
+    await octokit.rest.git.createRef({
       ...github.context.repo,
       ref: `refs/tags/${newTag}`,
       sha: tagCreateResponse.data.sha
