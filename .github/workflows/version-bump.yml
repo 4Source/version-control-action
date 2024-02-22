@@ -1,0 +1,21 @@
+name: Bump version
+on: 
+  pull_request:
+    types: 
+      - closed
+
+jobs:
+  versioning:
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Bump version
+        uses: ./
+        with: 
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          owner: ${{ github.repository_owner }}
+          repository:  ${{ github.event.repository.name }}
+          pr_number: ${{ github.event.number }}
