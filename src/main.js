@@ -77,7 +77,7 @@ async function run() {
       repo
     });
 
-    core.debug(`Latest: ${latest}`);
+    core.debug(`Latest: ${JSON.stringify(latest)}`);
 
     const { data: tags } = await octokit.rest.repos.listTags({
       owner,
