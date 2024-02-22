@@ -19,6 +19,16 @@ async function run() {
     const tag_prefix = core.getInput('tag_prefix', { required: false });
     const dry_run = core.getInput('dry_run', { required: false });
 
+    core.debug('github_token', github_token);
+    core.debug('label_major', label_major);
+    core.debug('label_minor', label_minor);
+    core.debug('label_patch', label_patch);
+    core.debug('label_beta', label_beta);
+    core.debug('label_alpha', label_alpha);
+    core.debug('label_docs', label_docs);
+    core.debug('tag_prefix', tag_prefix);
+    core.debug('dry_run', dry_run);
+
     const { GITHUB_REF, GITHUB_SHA } = process.env;
 
     if (!GITHUB_REF) {
