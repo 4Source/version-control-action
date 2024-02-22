@@ -55,19 +55,6 @@ async function run() {
     const tag_prefix = core.getInput('tag_prefix', { required: false });
     const dry_run = core.getInput('dry_run', { required: false });
 
-    core.debug(`github_token: ${github_token}`);
-    core.debug(`owner: ${owner}`);
-    core.debug(`repository: ${repository}`);
-    core.debug(`pr_number: ${pr_number}`);
-    core.debug(`label_major: ${label_major}`);
-    core.debug(`label_minor: ${label_minor}`);
-    core.debug(`label_patch: ${label_patch}`);
-    core.debug(`label_beta: ${label_beta}`);
-    core.debug(`label_alpha: ${label_alpha}`);
-    core.debug(`label_docs: ${label_docs}`);
-    core.debug(`tag_prefix: ${tag_prefix}`);
-    core.debug(`dry_run: ${dry_run}`);
-
     const { GITHUB_REF, GITHUB_SHA } = process.env;
 
     if (!GITHUB_REF) {
@@ -118,7 +105,7 @@ async function run() {
       return value.name;
     });
 
-    core.info(`Labels at pull request: ${labelsNames}`);
+    core.debug(`Labels at pull request: ${labelsNames}`);
 
     let bump = '';
     let identifier = '';
@@ -176,7 +163,38 @@ async function run() {
     core.setOutput('new_version', newVersion);
     core.setOutput('new_tag', newTag);
 
-    // core.debug(`New tag: ${newTag}`);
+    const tagAlreadyExists = !!(
+      await exec(`git tag -l "${newTag}"`)
+    ).stdout.trim();
+
+    if (tagAlreadyExists) {
+      core.warning('This tag already exists. Skipping...');
+      return;
+    }
+
+    if (dry_run === 'true') {
+      core.info('Dry run: not performing tag creation.');
+      return;
+    }
+
+    core.debug(`Creating annotated tag.`);
+
+    const tagCreateResponse = await octokit.git.createTag({
+      ...github.context.repo,
+      tag: newTag,
+      message: newTag,
+      object: GITHUB_SHA,
+      type: 'commit'
+    });
+
+    core.debug(`Pushing annotated tag to the repo`);
+
+    await octokit.git.createRef({
+      ...github.context.repo,
+      ref: `refs/tags/${newTag}`,
+      sha: tagCreateResponse.data.sha
+    });
+    return;
   } catch (error) {
     // Fail the workflow run if an error occurs
     core.setFailed(error.message);
