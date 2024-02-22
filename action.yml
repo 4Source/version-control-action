@@ -1,21 +1,49 @@
 name: 'version-control'
-description: 'Appleyes semantic versions bases on labels'
+description: 'Bump versions bases on labels.'
 author: '4Source'
  
 # Define your inputs here.
 inputs:
-  owner: 
-    description: 'The owner of the repositry'
-    required: true
-  repo: 
-    description: 'The repository name'
-    requiered: true
-  pr_number:
-    description: 'The number of the pull request'
-    requiered: true
-  token: 
+  github_token: 
     description: 'The token to use to access the GitHub API'
     required: true
+  label_major: 
+    description: 'The name of the label that will trigger a major version change. (default: `major`)'
+    required: false
+    default: 'major'
+  label_minor: 
+    description: 'The name of the label that will trigger a minor version change. (default: `minor`)'
+    required: false
+    default: 'minor'
+  label_patch: 
+    description: 'The name of the label that will trigger a patch version change. (default: `patch`)'
+    required: false
+    default: 'patch'
+  label_beta: 
+    description: 'The name of the label that will trigger a beta version change. (default: `beta`)'
+    required: false
+    default: 'beta'
+  label_alpha: 
+    description: 'The name of the label that will trigger a alpha version change. (default: `alpha`)'
+    required: false
+    default: 'alpha'
+  label_docs: 
+    description: 'The name of the label that will trigger a docs version change. (default: `docs`)'
+    required: false
+    default: 'docs'
+  tag_prefix:
+    description: "A prefix to the tag name (default: `v`)."
+    required: false
+    default: "v"
+  dry_run:
+    description: "Do not perform taging, just calculate next version, then exit"
+    required: false
+    default: false
+outputs:
+  new_tag:
+    description: "Generated tag"
+  new_version:
+    description: "Generated tag without the prefix"
 runs:
   using: node20
   main: dist/index.js
