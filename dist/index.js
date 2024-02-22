@@ -33488,8 +33488,8 @@ async function run() {
   try {
     const github_token = core.getInput('github_token', { required: true });
     const owner = core.getInput('owner', { required: true });
-    const repository = core.getInput('repository', { required: true });
-    const pr_number = core.getInput('pr_number', { required: true });
+    const repo = core.getInput('repository', { required: true });
+    const issue_number = core.getInput('pr_number', { required: true });
     const label_major = core.getInput('label_major', { required: false });
     const label_minor = core.getInput('label_minor', { required: false });
     const label_patch = core.getInput('label_patch', { required: false });
@@ -33511,12 +33511,17 @@ async function run() {
       return;
     }
 
+    const octokit = new github.getOctokit(github_token);
+
     core.debug(GITHUB_REF);
     core.debug(GITHUB_SHA);
 
-    await exec('git fetch --tags');
+    const { data: tags } = await octokit.rest.repos.listTags({
+      owner,
+      repo
+    });
 
-    core.debug(`Tags: ${JSON.stringify(await exec('git tag'))}`);
+    core.debug(`Tags: ${tags}`);
 
     const hasTag = (await exec('git tag')).stdout.trim();
     let tag = '';
@@ -33539,12 +33544,10 @@ async function run() {
       core.debug('No previous tag.');
     }
 
-    const octokit = new github.getOctokit(github_token);
-
     const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
       owner,
-      repo: repository,
-      issue_number: pr_number
+      repo,
+      issue_number
     });
 
     const labelsNames = labels.map(value => {
