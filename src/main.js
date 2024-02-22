@@ -1,7 +1,40 @@
 const core = require('@actions/core');
-const exec = require('@actions/exec');
+const _exec = require('@actions/exec');
 const github = require('@actions/github');
 const semver = require('semver');
+
+async function exec(command) {
+  let stdout = '';
+  let stderr = '';
+
+  try {
+    const options = {
+      listeners: {
+        stdout: data => {
+          stdout += data.toString();
+        },
+        stderr: data => {
+          stderr += data.toString();
+        }
+      }
+    };
+
+    const code = await _exec(command, undefined, options);
+
+    return {
+      code,
+      stdout,
+      stderr
+    };
+  } catch (err) {
+    return {
+      code: 1,
+      stdout,
+      stderr,
+      error: err
+    };
+  }
+}
 
 /**
  * The main function for the action.
@@ -10,6 +43,9 @@ const semver = require('semver');
 async function run() {
   try {
     const github_token = core.getInput('github_token', { required: true });
+    const owner = core.getInput('owner', { required: true });
+    const repository = core.getInput('repository', { required: true });
+    const pr_number = core.getInput('pr_number', { required: true });
     const label_major = core.getInput('label_major', { required: false });
     const label_minor = core.getInput('label_minor', { required: false });
     const label_patch = core.getInput('label_patch', { required: false });
@@ -48,7 +84,7 @@ async function run() {
       core.debug(`Previous tag is: ${tag}`);
 
       if (previousTagSha === GITHUB_SHA) {
-        core.debug('No new commits since previous tag. Skipping...');
+        core.info('No new commits since previous tag. Skipping...');
         return;
       }
     } else {
@@ -57,33 +93,108 @@ async function run() {
       core.debug('No previous tag.');
     }
 
-    // // for some reason the commits start and end with a `'` on the CI so we ignore it
-    // const commits = logs
-    //   .split(SEPARATOR)
-    //   .map((x) => ({
-    //     message: x.trim().replace(/^'\n'/g, "").replace(/^'/g, ""),
-    //   }))
-    //   .filter((x) => !!x.message);
-    // const bump = await analyzeCommits(
-    //   {},
-    //   { commits, logger: { log: console.info.bind(console) } }
-    // );
+    const octokit = new github.getOctokit(github_token);
 
-    // if (!bump) {
-    //   core.debug("No commit specifies the version bump. Skipping...");
-    //   return;
-    // }
-    // inc(tag, )
+    const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
+      owner,
+      repo: repository,
+      issue_number: pr_number
+    });
 
-    // const newVersion = `${inc(tag, bump || defaultBump)}${
-    //   preRelease ? `-${GITHUB_SHA.slice(0, 7)}` : ""
-    // }`;
-    // const newTag = `${tagPrefix}${newVersion}`;
+    const labelsNames = labels.map(value => {
+      return value.name;
+    });
 
-    // core.setOutput("new_version", newVersion);
-    // core.setOutput("new_tag", newTag);
+    core.debug(`Labels at pull request: ${labelsNames}`);
 
-    // core.debug(`New tag: ${newTag}`);
+    let bump = '';
+    let identifier = '';
+
+    // Is major change
+    if (labelsNames.includes(label_major)) {
+      if (labelsNames.includes(label_beta)) {
+        bump = 'premajor';
+        identifier = 'beta';
+      } else if (labelsNames.includes(label_alpha)) {
+        bump = 'premajor';
+        identifier = 'alpha';
+      } else {
+        bump = 'major';
+      }
+    }
+    // Is minor change
+    else if (labelsNames.includes(label_minor)) {
+      if (labelsNames.includes(label_beta)) {
+        bump = 'preminor';
+        identifier = 'beta';
+      } else if (labelsNames.includes(label_alpha)) {
+        bump = 'preminor';
+        identifier = 'alpha';
+      } else {
+        bump = 'minor';
+      }
+    }
+    // Is patch change
+    else if (labelsNames.includes(label_patch)) {
+      if (labelsNames.includes(label_beta)) {
+        bump = 'prepatch';
+        identifier = 'beta';
+      } else if (labelsNames.includes(label_alpha)) {
+        bump = 'prepatch';
+        identifier = 'alpha';
+      } else {
+        bump = 'patch';
+      }
+    }
+    // Is docs change
+    else if (labelsNames.includes(label_docs)) {
+      core.info('Is docs change do not requiere a new version. Skipping...');
+      return;
+    } else {
+      core.error('None of the version labels are set in the pull request!');
+    }
+
+    const newVersion = `${semver.inc(tag, bump, identifier)}`;
+    const newTag = `${tag_prefix}${newVersion}`;
+
+    core.info(`New version: ${newVersion}`);
+    core.info(`New tag: ${newTag}`);
+
+    core.setOutput('new_version', newVersion);
+    core.setOutput('new_tag', newTag);
+
+    const tagAlreadyExists = !!(
+      await exec(`git tag -l "${newTag}"`)
+    ).stdout.trim();
+
+    if (tagAlreadyExists) {
+      core.warning('This tag already exists. Skipping...');
+      return;
+    }
+
+    if (dry_run === 'true') {
+      core.info('Dry run: not performing tag creation.');
+      return;
+    }
+
+    core.debug(`Creating annotated tag.`);
+
+    const tagCreateResponse = await octokit.git.createTag({
+      ...github.context.repo,
+      tag: newTag,
+      message: newTag,
+      object: GITHUB_SHA,
+      type: 'commit'
+    });
+
+    core.debug(`Pushing annotated tag to the repo`);
+
+    await octokit.git.createRef({
+      ...github.context.repo,
+      ref: `refs/tags/${newTag}`,
+      sha: tagCreateResponse.data.sha
+    });
+    return;
   } catch (error) {
     // Fail the workflow run if an error occurs
     core.setFailed(error.message);
