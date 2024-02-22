@@ -97,7 +97,7 @@ async function run() {
       core.debug(`Previous tag is: ${tag}`);
 
       if (previousTagSha === GITHUB_SHA) {
-        core.debug('No new commits since previous tag. Skipping...');
+        core.info('No new commits since previous tag. Skipping...');
         return;
       }
     } else {
@@ -114,37 +114,64 @@ async function run() {
       issue_number: pr_number
     });
 
-    core.debug(
-      `Labels: ${labels.map(value => {
-        return value.name;
-      })}`
-    );
+    const labelsNames = labels.map(value => {
+      return value.name;
+    });
 
-    // // for some reason the commits start and end with a `'` on the CI so we ignore it
-    // const commits = logs
-    //   .split(SEPARATOR)
-    //   .map((x) => ({
-    //     message: x.trim().replace(/^'\n'/g, "").replace(/^'/g, ""),
-    //   }))
-    //   .filter((x) => !!x.message);
-    // const bump = await analyzeCommits(
-    //   {},
-    //   { commits, logger: { log: console.info.bind(console) } }
-    // );
+    core.info(`Labels at pull request: ${labelsNames}`);
 
-    // if (!bump) {
-    //   core.debug("No commit specifies the version bump. Skipping...");
-    //   return;
-    // }
-    // inc(tag, )
+    let bump = '';
+    let identifier = '';
 
-    // const newVersion = `${inc(tag, bump || defaultBump)}${
-    //   preRelease ? `-${GITHUB_SHA.slice(0, 7)}` : ""
-    // }`;
-    // const newTag = `${tagPrefix}${newVersion}`;
+    // Is major change
+    if (labelsNames.includes(label_major)) {
+      if (labelsNames.includes(label_beta)) {
+        bump = 'premajor';
+        identifier = 'beta';
+      } else if (labelsNames.includes(label_alpha)) {
+        bump = 'premajor';
+        identifier = 'alpha';
+      } else {
+        bump = 'major';
+      }
+    }
+    // Is minor change
+    else if (labelsNames.includes(label_minor)) {
+      if (labelsNames.includes(label_beta)) {
+        bump = 'preminor';
+        identifier = 'beta';
+      } else if (labelsNames.includes(label_alpha)) {
+        bump = 'preminor';
+        identifier = 'alpha';
+      } else {
+        bump = 'minor';
+      }
+    }
+    // Is patch change
+    else if (labelsNames.includes(label_patch)) {
+      if (labelsNames.includes(label_beta)) {
+        bump = 'prepatch';
+        identifier = 'beta';
+      } else if (labelsNames.includes(label_alpha)) {
+        bump = 'prepatch';
+        identifier = 'alpha';
+      } else {
+        bump = 'patch';
+      }
+    }
+    // Is docs change
+    else if (labelsNames.includes(label_docs)) {
+      core.info('Is docs change do not requiere a new version. Skipping...');
+      return;
+    } else {
+      core.error('None of the version labels are set in the pull request!');
+    }
 
-    // core.setOutput("new_version", newVersion);
-    // core.setOutput("new_tag", newTag);
+    const newVersion = `${semver.inc(tag, bump, identifier)}`;
+    const newTag = `${tag_prefix}${newVersion}`;
+
+    core.setOutput('new_version', newVersion);
+    core.setOutput('new_tag', newTag);
 
     // core.debug(`New tag: ${newTag}`);
   } catch (error) {
