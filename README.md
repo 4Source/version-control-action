@@ -40,6 +40,7 @@ jobs:
 ## Outputs
 - **new_tag** - The value of the newly created tag. Note that if there hasn't been any new commit, this will be undefined.
 - **new_version** - The value of the newly created tag without the prefix. Note that if there hasn't been any new commit, this will be undefined.
+- **pre_release** - Is true if is a pre-release else false.
 
 # Credits
 [laputansoft/github-tag-action](https://github.com/laputansoft/github-tag-action)

@@ -109,15 +109,18 @@ async function run() {
 
     let bump = '';
     let identifier = '';
+    let preRelease = false;
 
     // Is major change
     if (labelsNames.includes(label_major)) {
       if (labelsNames.includes(label_beta)) {
         bump = 'premajor';
         identifier = 'beta';
+        preRelease = true;
       } else if (labelsNames.includes(label_alpha)) {
         bump = 'premajor';
         identifier = 'alpha';
+        preRelease = true;
       } else {
         bump = 'major';
       }
@@ -127,9 +130,11 @@ async function run() {
       if (labelsNames.includes(label_beta)) {
         bump = 'preminor';
         identifier = 'beta';
+        preRelease = true;
       } else if (labelsNames.includes(label_alpha)) {
         bump = 'preminor';
         identifier = 'alpha';
+        preRelease = true;
       } else {
         bump = 'minor';
       }
@@ -139,9 +144,11 @@ async function run() {
       if (labelsNames.includes(label_beta)) {
         bump = 'prepatch';
         identifier = 'beta';
+        preRelease = true;
       } else if (labelsNames.includes(label_alpha)) {
         bump = 'prepatch';
         identifier = 'alpha';
+        preRelease = true;
       } else {
         bump = 'patch';
       }
@@ -153,6 +160,8 @@ async function run() {
     } else {
       core.setFailed('None of the version labels are set in the pull request!');
     }
+
+    core.setOutput('pre_release', preRelease);
 
     const newVersion = `${semver.inc(tag, bump, identifier)}`;
     const newTag = `${tag_prefix}${newVersion}`;
