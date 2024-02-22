@@ -21,7 +21,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 ## Inputs
-- **github_token** (_requiered_) - Required for permission to tag the repo. Usually ``${{ secrets.GITHUB_TOKEN }}``.
+- **github_token** (_requiered_) - Required for permission to tag the repository. Usually ``${{ secrets.GITHUB_TOKEN }}``.
 - **label_major** (_optional_) - The name of the label the pull request is labeled with for a major version change. **Default:** major
 - **label_minor** (_optional_) - The name of the label the pull request is labeled with for a minor version change. **Default:** minor
 - **label_patch** (_optional_) - The name of the label the pull request is labeled with for a patch version change. **Default:** patch
