@@ -219,13 +219,19 @@ async function run() {
     // Fetch all releases
     const releases = await fetchReleases(octokit, owner, repo);
 
-    // if (latest) {
-    //   tag = latest;
-    // } else {
-    tag = 'v0.0.0';
+    if (releases.length > 0) {
+      if (preRelease) {
+        tag = 'pre';
+      } else {
+        tag = releases.find(element => element.latest).name;
+      }
+    } else {
+      tag = 'v0.0.0';
 
-    //   core.debug('No previous tag.');
-    // }
+      core.debug('No previous tag.');
+    }
+
+    core.info(`Previous tag: ${tag}`); // debug
 
     core.setOutput('pre_release', preRelease);
 
