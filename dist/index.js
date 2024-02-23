@@ -32280,7 +32280,9 @@ async function fetchReleases(octokit, owner, repo) {
   });
 
   let latestName = '';
-  if (releasesData.length > 0) {
+  if (
+    releasesData.filter(value => !value.draft && !value.prerelease).length > 0
+  ) {
     const { data: latestData } = await octokit.rest.repos.getLatestRelease({
       owner,
       repo
@@ -32371,7 +32373,14 @@ async function run() {
     const releases = await fetchReleases(octokit, owner, repo);
 
     if (releases.length > 0) {
-      previousVersion = releases.find(element => element.latest).name;
+      let latest = releases.find(element => element.latest);
+      if (!latest) {
+        let versions = releases.map(value => value.name);
+        versions = versions.sort((v1, v2) => semver.compare(v1, v2));
+        latest = releases.find(element => element.name === versions[0]);
+      }
+
+      previousVersion = latest.name;
       core.info(`Previous version: ${previousVersion}`);
     } else {
       previousVersion = 'v0.0.0';
