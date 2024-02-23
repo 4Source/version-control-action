@@ -1,7 +1,6 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const semver = require('semver');
-const exec = require('@actions/exec');
 
 /**
  * Fetches the Labels attached to a issue or pull request from github.
@@ -207,16 +206,6 @@ async function run() {
       ref: `refs/tags/${newTag}`,
       sha: tagCreateResponse.data.sha
     });
-
-    // octokit.rest.repos.createRelease({
-    //   owner,
-    //   repo,
-    //   tag_name,
-    //   name: tag_name,
-    //   draft,
-    //   prerelease,
-    //   make_latest
-    // });
 
     return;
   } catch (error) {
