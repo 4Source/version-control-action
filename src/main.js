@@ -75,20 +75,36 @@ async function fetchTags(octokit, owner, repo) {
  * @returns Array of release objects. release { name, draft, prerelease }
  */
 async function fetchReleases(octokit, owner, repo) {
-  const { data, status } = await octokit.rest.repos.listReleases({
-    owner,
-    repo
-  });
+  const { data: releasesData, status: releasesStatus } =
+    await octokit.rest.repos.listReleases({
+      owner,
+      repo
+    });
 
   // Fetch returned error
-  if (status !== 200) {
-    core.debug(`Status: ${status}`);
+  if (releasesStatus !== 200) {
+    core.debug(`Status: ${releasesStatus}`);
     core.setFailed('Fetch releases got wrong!');
     return;
   }
 
+  const { data: latestData, status: latestStatus } =
+    await octokit.rest.repos.getLatestRelease({
+      owner,
+      repo
+    });
+
+  core.info(`Latest: ${JSON.stringify(latestData)}`); // debug
+
+  // Fetch returned error
+  if (latestStatus !== 200) {
+    core.debug(`Status: ${latestStatus}`);
+    core.setFailed('Fetch latest releases got wrong!');
+    return;
+  }
+
   // Build release objects
-  const releases = data.map(value => {
+  const releases = releasesData.map(value => {
     return {
       name: value.tag_name,
       draft: value.draft,
