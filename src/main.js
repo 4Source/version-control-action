@@ -30,7 +30,7 @@ async function fetchLabelsOnIssue(octokit, owner, repo, issue_number) {
     return value.name;
   });
 
-  core.info(`Labels: ${JSON.stringify(labels)}`); // debug
+  core.debug(`Labels: ${JSON.stringify(labels)}`);
 
   return labels;
 }
@@ -63,7 +63,7 @@ async function fetchTags(octokit, owner, repo) {
     };
   });
 
-  core.info(`Tags: ${JSON.stringify(tags)}`); // debug
+  core.debug(`Tags: ${JSON.stringify(tags)}`);
 
   return tags;
 }
@@ -89,18 +89,15 @@ async function fetchReleases(octokit, owner, repo) {
     return;
   }
 
-  const { data: latestData, status: latestStatus } =
-    await octokit.rest.repos.getLatestRelease({
+  const { data: latestData } = await octokit.rest.repos
+    .getLatestRelease({
       owner,
       repo
+    })
+    .error(e => {
+      core.error(e);
+      return { data: [] };
     });
-
-  // Fetch returned error
-  if (latestStatus !== 200) {
-    core.debug(`Status: ${latestStatus}`);
-    core.setFailed('Fetch latest releases got wrong!');
-    return;
-  }
 
   // Build release objects
   const releases = releasesData.map(value => {
@@ -112,7 +109,7 @@ async function fetchReleases(octokit, owner, repo) {
     };
   });
 
-  core.info(`Releases: ${JSON.stringify(releases)}`); // debug
+  core.debug(`Releases: ${JSON.stringify(releases)}`);
 
   return releases;
 }
