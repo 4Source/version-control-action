@@ -32285,7 +32285,7 @@ async function fetchTags(octokit, owner, repo) {
  * @param {*} octokit Octokit object
  * @param {string} owner The owner name of the repository
  * @param {string} repo The name of the repository
- * @returns Array of release objects. release { name, draft, prerelease }
+ * @returns Array of release objects. release { name, draft, prerelease, latest }
  */
 async function fetchReleases(octokit, owner, repo) {
   const { data: releasesData, status: releasesStatus } =
@@ -32307,8 +32307,6 @@ async function fetchReleases(octokit, owner, repo) {
       repo
     });
 
-  core.info(`Latest: ${JSON.stringify(latestData)}`); // debug
-
   // Fetch returned error
   if (latestStatus !== 200) {
     core.debug(`Status: ${latestStatus}`);
@@ -32321,7 +32319,8 @@ async function fetchReleases(octokit, owner, repo) {
     return {
       name: value.tag_name,
       draft: value.draft,
-      prerelease: value.prerelease
+      prerelease: value.prerelease,
+      latest: value.tag_name === latestData.tag_name
     };
   });
 
