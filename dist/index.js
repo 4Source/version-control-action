@@ -33447,39 +33447,6 @@ const github = __nccwpck_require__(5438);
 const semver = __nccwpck_require__(1383);
 const exec = __nccwpck_require__(1514);
 
-async function execute(command) {
-  let stdout = '';
-  let stderr = '';
-
-  try {
-    const options = {
-      listeners: {
-        stdout: data => {
-          stdout += data.toString();
-        },
-        stderr: data => {
-          stderr += data.toString();
-        }
-      }
-    };
-
-    const code = await exec(command, undefined, options);
-
-    return {
-      code,
-      stdout,
-      stderr
-    };
-  } catch (err) {
-    return {
-      code: 1,
-      stdout,
-      stderr,
-      error: err
-    };
-  }
-}
-
 /**
  * Fetches the Labels attached to a issue or pull request from github.
  * @param {*} octokit Octokit object
@@ -33608,8 +33575,6 @@ async function run() {
     const label_major = core.getInput('label_major', { required: false });
     const label_minor = core.getInput('label_minor', { required: false });
     const label_patch = core.getInput('label_patch', { required: false });
-    const label_beta = core.getInput('label_beta', { required: false });
-    const label_alpha = core.getInput('label_alpha', { required: false });
     const label_docs = core.getInput('label_docs', { required: false });
     const tag_prefix = core.getInput('tag_prefix', { required: false });
     const dry_run = core.getInput('dry_run', { required: false });
@@ -33637,50 +33602,18 @@ async function run() {
 
     let previousVersion = '';
     let bump = '';
-    let identifier = '';
-    let preRelease = false;
 
     // Is major change
     if (label_major && labels.includes(label_major)) {
-      if (label_beta && labels.includes(label_beta)) {
-        bump = 'premajor';
-        identifier = 'beta';
-        preRelease = true;
-      } else if (label_alpha && labels.includes(label_alpha)) {
-        bump = 'premajor';
-        identifier = 'alpha';
-        preRelease = true;
-      } else {
-        bump = 'major';
-      }
+      bump = 'major';
     }
     // Is minor change
     else if (label_minor && labels.includes(label_minor)) {
-      if (label_beta && labels.includes(label_beta)) {
-        bump = 'preminor';
-        identifier = 'beta';
-        preRelease = true;
-      } else if (label_alpha && labels.includes(label_alpha)) {
-        bump = 'preminor';
-        identifier = 'alpha';
-        preRelease = true;
-      } else {
-        bump = 'minor';
-      }
+      bump = 'minor';
     }
     // Is patch change
     else if (label_patch && labels.includes(label_patch)) {
-      if (label_beta && labels.includes(label_beta)) {
-        bump = 'prepatch';
-        identifier = 'beta';
-        preRelease = true;
-      } else if (label_alpha && labels.includes(label_alpha)) {
-        bump = 'prepatch';
-        identifier = 'alpha';
-        preRelease = true;
-      } else {
-        bump = 'patch';
-      }
+      bump = 'patch';
     }
     // Is docs change
     else if (label_docs && labels.includes(label_docs)) {
@@ -33695,27 +33628,14 @@ async function run() {
     const releases = await fetchReleases(octokit, owner, repo);
 
     if (releases.length > 0) {
-      if (preRelease) {
-        previousVersion = 'pre';
-      } else {
-        previousVersion = releases.find(element => element.latest).name;
-      }
+      previousVersion = releases.find(element => element.latest).name;
+      core.debug(`Previous version: ${previousVersion}`);
     } else {
       previousVersion = 'v0.0.0';
-
-      core.debug('No previous tag.');
+      core.debug(`No previous tag. ${previousVersion}`);
     }
 
-    const resFetch = await execute('git fetch --tags');
-    core.info(JSON.stringify(resFetch));
-    const resTag = await execute('git describe --tags --abbrev=0');
-    core.info(JSON.stringify(resTag));
-
-    core.info(`Previous version: ${previousVersion}`); // debug
-
-    core.setOutput('pre_release', preRelease);
-
-    const newVersion = `${semver.inc(previousVersion, bump, identifier)}`;
+    const newVersion = `${semver.inc(previousVersion, bump)}`;
     const newTag = `${tag_prefix}${newVersion}`;
 
     core.info(`New version: ${newVersion}`);
