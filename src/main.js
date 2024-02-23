@@ -1,6 +1,31 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const semver = require('semver');
+const exec = require('@actions/exec');
+
+async function execute(commandLine, args) {
+  let out = '';
+  let error = '';
+
+  const options = {
+    listeners: {
+      stdout: data => {
+        out += data.toString();
+      },
+      stderr: data => {
+        error += data.toString();
+      }
+    }
+  };
+
+  await exec.exec(commandLine, args, options);
+
+  if (error !== '') {
+    core.setFailed(error);
+  }
+
+  return out;
+}
 
 /**
  * Fetches the Labels attached to a issue or pull request from github.
@@ -157,10 +182,7 @@ async function run() {
     // Fetch labels on pull request
     const labels = await fetchLabelsOnIssue(octokit, owner, repo, pr_number);
 
-    // Fetch all tags
-    const tags = await fetchTags(octokit, owner, repo);
-
-    let tag = '';
+    let previousVersion = '';
     let bump = '';
     let identifier = '';
     let preRelease = false;
@@ -221,21 +243,26 @@ async function run() {
 
     if (releases.length > 0) {
       if (preRelease) {
-        tag = 'pre';
+        previousVersion = 'pre';
       } else {
-        tag = releases.find(element => element.latest).name;
+        previousVersion = releases.find(element => element.latest).name;
       }
     } else {
-      tag = 'v0.0.0';
+      previousVersion = 'v0.0.0';
 
       core.debug('No previous tag.');
     }
 
-    core.info(`Previous tag: ${tag}`); // debug
+    const resFetch = await execute('git', ['fetch', '--tags']);
+    core.info(resFetch);
+    const resTag = await execute('git', ['describe', '--tags', ' --abbrev=0']);
+    core.info(resTag);
+
+    core.info(`Previous version: ${previousVersion}`); // debug
 
     core.setOutput('pre_release', preRelease);
 
-    const newVersion = `${semver.inc(tag, bump, identifier)}`;
+    const newVersion = `${semver.inc(previousVersion, bump, identifier)}`;
     const newTag = `${tag_prefix}${newVersion}`;
 
     core.info(`New version: ${newVersion}`);
@@ -243,6 +270,9 @@ async function run() {
 
     core.setOutput('new_version', newVersion);
     core.setOutput('new_tag', newTag);
+
+    // Fetch all tags
+    const tags = await fetchTags(octokit, owner, repo);
 
     // Exist newTag allready
     if (tags.map(value => value.name).includes(newTag)) {
