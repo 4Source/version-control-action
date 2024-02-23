@@ -33532,6 +33532,15 @@ async function run() {
       repo
     });
 
+    core.info(
+      JSON.stringify(
+        await octokit.rest.repos.listReleases({
+          owner,
+          repo
+        })
+      )
+    );
+
     // Build release objects
     const releases = releasesData.map(value => {
       return {
