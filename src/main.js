@@ -42,6 +42,7 @@ async function exec(command) {
  */
 async function run() {
   try {
+    // Get the inputs from workflow
     const github_token = core.getInput('github_token', { required: true });
     const owner = core.getInput('owner', { required: true });
     const repo = core.getInput('repository', { required: true });
@@ -57,61 +58,73 @@ async function run() {
 
     const { GITHUB_REF, GITHUB_SHA } = process.env;
 
+    // Check all requiered inputs present
     if (!GITHUB_REF) {
       core.setFailed('Missing GITHUB_REF');
       return;
     }
+    core.debug(`GITHUB_REF: ${GITHUB_REF}`);
 
     if (!GITHUB_SHA) {
       core.setFailed('Missing GITHUB_SHA');
       return;
     }
+    core.debug(`GITHUB_SHA: ${GITHUB_SHA}`);
 
+    // Octokit rest api (https://octokit.github.io/rest.js)
     const octokit = new github.getOctokit(github_token);
 
-    core.debug(GITHUB_REF);
-    core.debug(GITHUB_SHA);
-
-    const { data: releases } = await octokit.rest.repos.listReleases({
+    // Fetch all tags
+    const { data: tagsData } = await octokit.rest.repos.listTags({
       owner,
       repo
     });
 
-    core.debug(`Latest: ${JSON.stringify(releases)}`);
+    core.info(`Tags: ${JSON.stringify(tagsData)}`); // debug
 
-    let tag = '';
+    // Fetch all releases
+    const { data: releasesData } = await octokit.rest.repos.listReleases({
+      owner,
+      repo
+    });
 
-    // if (latest) {
-    //   tag = latest;
-    // } else {
-    tag = '0.0.0';
+    // Build release objects
+    const releases = releasesData.map(value => {
+      return {
+        name: value.tag_name,
+        draft: value.draft,
+        prerelease: value.prerelease
+      };
+    });
 
-    //   core.debug('No previous tag.');
-    // }
+    core.info(`Releases: ${JSON.stringify(releases)}`); // debug
 
-    const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
+    // Fetch labels on pull request
+    const { data: labelsData } = await octokit.rest.issues.listLabelsOnIssue({
       owner,
       repo,
       issue_number
     });
 
-    const labelNames = labels.map(value => {
+    // Build label objects
+    const labels = labelsData.map(value => {
       return value.name;
     });
 
-    core.debug(`Labels at pull request: ${labelNames}`);
+    core.info(`Labels at pull request: ${labels}`); // debug
 
+    let tag = '';
     let bump = '';
     let identifier = '';
     let preRelease = false;
 
     // Is major change
-    if (labelNames.includes(label_major)) {
-      if (labelNames.includes(label_beta)) {
+    if (label_major && labels.includes(label_major)) {
+      if (label_beta && labels.includes(label_beta)) {
         bump = 'premajor';
         identifier = 'beta';
         preRelease = true;
-      } else if (labelNames.includes(label_alpha)) {
+      } else if (label_alpha && labels.includes(label_alpha)) {
         bump = 'premajor';
         identifier = 'alpha';
         preRelease = true;
@@ -120,12 +133,12 @@ async function run() {
       }
     }
     // Is minor change
-    else if (labelNames.includes(label_minor)) {
-      if (labelNames.includes(label_beta)) {
+    else if (label_minor && labels.includes(label_minor)) {
+      if (label_beta && labels.includes(label_beta)) {
         bump = 'preminor';
         identifier = 'beta';
         preRelease = true;
-      } else if (labelNames.includes(label_alpha)) {
+      } else if (label_alpha && labels.includes(label_alpha)) {
         bump = 'preminor';
         identifier = 'alpha';
         preRelease = true;
@@ -134,12 +147,12 @@ async function run() {
       }
     }
     // Is patch change
-    else if (labelNames.includes(label_patch)) {
-      if (labelNames.includes(label_beta)) {
+    else if (label_patch && labels.includes(label_patch)) {
+      if (label_beta && labels.includes(label_beta)) {
         bump = 'prepatch';
         identifier = 'beta';
         preRelease = true;
-      } else if (labelNames.includes(label_alpha)) {
+      } else if (label_alpha && labels.includes(label_alpha)) {
         bump = 'prepatch';
         identifier = 'alpha';
         preRelease = true;
@@ -148,12 +161,20 @@ async function run() {
       }
     }
     // Is docs change
-    else if (labelNames.includes(label_docs)) {
+    else if (label_docs && labels.includes(label_docs)) {
       core.info('Is docs change do not requiere a new version. Skipping...');
       return;
     } else {
       core.setFailed('None of the version labels are set in the pull request!');
     }
+
+    // if (latest) {
+    //   tag = latest;
+    // } else {
+    tag = 'v0.0.0';
+
+    //   core.debug('No previous tag.');
+    // }
 
     core.setOutput('pre_release', preRelease);
 
