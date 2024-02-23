@@ -1,39 +1,104 @@
 const core = require('@actions/core');
-const _exec = require('@actions/exec');
 const github = require('@actions/github');
 const semver = require('semver');
 
-async function exec(command) {
-  let stdout = '';
-  let stderr = '';
+/**
+ * Fetches the Labels attached to a issue or pull request from github.
+ * @param {*} octokit Octokit object
+ * @param {string} owner The owner name of the repository
+ * @param {string} repo The name of the repository
+ * @param {string} issue_number The number of the issue or pull request
+ * @returns Array of label names
+ */
+async function fetchLabelsOnIssue(octokit, owner, repo, issue_number) {
+  const { data, status } = await octokit.rest.issues.listLabelsOnIssue({
+    owner,
+    repo,
+    issue_number
+  });
 
-  try {
-    const options = {
-      listeners: {
-        stdout: data => {
-          stdout += data.toString();
-        },
-        stderr: data => {
-          stderr += data.toString();
-        }
-      }
-    };
-
-    const code = await _exec(command, undefined, options);
-
-    return {
-      code,
-      stdout,
-      stderr
-    };
-  } catch (err) {
-    return {
-      code: 1,
-      stdout,
-      stderr,
-      error: err
-    };
+  // Fetch returned error
+  if (status !== 200) {
+    core.debug(`Status: ${status}`);
+    core.setFailed('Fetch labels got wrong!');
+    return;
   }
+
+  // Build label objects
+  const labels = data.map(value => {
+    return value.name;
+  });
+
+  core.info(`Labels: ${JSON.stringify(labels)}`); // debug
+
+  return labels;
+}
+
+/**
+ * Fetches the tags in the repository from github
+ * @param {*} octokit Octokit object
+ * @param {string} owner The owner name of the repository
+ * @param {string} repo The name of the repository
+ * @returns Array of tag objects. tag { name, commit }
+ */
+async function fetchTags(octokit, owner, repo) {
+  const { data, status } = await octokit.rest.repos.listTags({
+    owner,
+    repo
+  });
+
+  // Fetch returned error
+  if (status !== 200) {
+    core.debug(`Status: ${status}`);
+    core.setFailed('Fetch tags got wrong!');
+    return;
+  }
+
+  // Build tags objects
+  const tags = data.map(value => {
+    return {
+      name: value.name,
+      commit: value.commit.sha
+    };
+  });
+
+  core.info(`Tags: ${JSON.stringify(tags)}`); // debug
+
+  return tags;
+}
+
+/**
+ * Fetches the releases in the repository from github
+ * @param {*} octokit Octokit object
+ * @param {string} owner The owner name of the repository
+ * @param {string} repo The name of the repository
+ * @returns Array of release objects. release { name, draft, prerelease }
+ */
+async function fetchReleases(octokit, owner, repo) {
+  const { data, status } = await octokit.rest.repos.listReleases({
+    owner,
+    repo
+  });
+
+  // Fetch returned error
+  if (status !== 200) {
+    core.debug(`Status: ${status}`);
+    core.setFailed('Fetch releases got wrong!');
+    return;
+  }
+
+  // Build release objects
+  const releases = data.map(value => {
+    return {
+      name: value.tag_name,
+      draft: value.draft,
+      prerelease: value.prerelease
+    };
+  });
+
+  core.info(`Releases: ${JSON.stringify(releases)}`); // debug
+
+  return releases;
 }
 
 /**
@@ -46,7 +111,7 @@ async function run() {
     const github_token = core.getInput('github_token', { required: true });
     const owner = core.getInput('owner', { required: true });
     const repo = core.getInput('repository', { required: true });
-    const issue_number = core.getInput('pr_number', { required: true });
+    const pr_number = core.getInput('pr_number', { required: true });
     const label_major = core.getInput('label_major', { required: false });
     const label_minor = core.getInput('label_minor', { required: false });
     const label_patch = core.getInput('label_patch', { required: false });
@@ -74,53 +139,11 @@ async function run() {
     // Octokit rest api (https://octokit.github.io/rest.js)
     const octokit = new github.getOctokit(github_token);
 
-    // Fetch all tags
-    const { data: tagsData } = await octokit.rest.repos.listTags({
-      owner,
-      repo
-    });
-
-    core.info(`Tags: ${JSON.stringify(tagsData)}`); // debug
-
-    // Fetch all releases
-    const { data: releasesData } = await octokit.rest.repos.listReleases({
-      owner,
-      repo
-    });
-
-    core.info(
-      JSON.stringify(
-        await octokit.rest.repos.listReleases({
-          owner,
-          repo
-        })
-      )
-    );
-
-    // Build release objects
-    const releases = releasesData.map(value => {
-      return {
-        name: value.tag_name,
-        draft: value.draft,
-        prerelease: value.prerelease
-      };
-    });
-
-    core.info(`Releases: ${JSON.stringify(releases)}`); // debug
-
     // Fetch labels on pull request
-    const { data: labelsData } = await octokit.rest.issues.listLabelsOnIssue({
-      owner,
-      repo,
-      issue_number
-    });
+    const labels = await fetchLabelsOnIssue(octokit, owner, repo, pr_number);
 
-    // Build label objects
-    const labels = labelsData.map(value => {
-      return value.name;
-    });
-
-    core.info(`Labels at pull request: ${labels}`); // debug
+    // Fetch all tags
+    const tags = await fetchTags(octokit, owner, repo);
 
     let tag = '';
     let bump = '';
@@ -175,7 +198,11 @@ async function run() {
       return;
     } else {
       core.setFailed('None of the version labels are set in the pull request!');
+      return;
     }
+
+    // Fetch all releases
+    const releases = await fetchReleases(octokit, owner, repo);
 
     // if (latest) {
     //   tag = latest;
@@ -196,11 +223,8 @@ async function run() {
     core.setOutput('new_version', newVersion);
     core.setOutput('new_tag', newTag);
 
-    const tagAlreadyExists = !!(
-      await exec(`git tag -l "${newTag}"`)
-    ).stdout.trim();
-
-    if (tagAlreadyExists) {
+    // Exist newTag allready
+    if (tags.map(value => value.name).includes(newTag)) {
       core.setFailed('This tag already exists. Skipping...');
       return;
     }
@@ -227,6 +251,17 @@ async function run() {
       ref: `refs/tags/${newTag}`,
       sha: tagCreateResponse.data.sha
     });
+
+    // octokit.rest.repos.createRelease({
+    //   owner,
+    //   repo,
+    //   tag_name,
+    //   name: tag_name,
+    //   draft,
+    //   prerelease,
+    //   make_latest
+    // });
+
     return;
   } catch (error) {
     // Fail the workflow run if an error occurs
