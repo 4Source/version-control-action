@@ -33443,41 +33443,96 @@ function wrappy (fn, cb) {
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const core = __nccwpck_require__(2186);
-const _exec = __nccwpck_require__(1514);
 const github = __nccwpck_require__(5438);
 const semver = __nccwpck_require__(1383);
+const exec = __nccwpck_require__(1514);
 
-async function exec(command) {
-  let stdout = '';
-  let stderr = '';
+/**
+ * Fetches the Labels attached to a issue or pull request from github.
+ * @param {*} octokit Octokit object
+ * @param {string} owner The owner name of the repository
+ * @param {string} repo The name of the repository
+ * @param {string} issue_number The number of the issue or pull request
+ * @returns Array of label names
+ */
+async function fetchLabelsOnIssue(octokit, owner, repo, issue_number) {
+  const { data } = await octokit.rest.issues.listLabelsOnIssue({
+    owner,
+    repo,
+    issue_number
+  });
 
-  try {
-    const options = {
-      listeners: {
-        stdout: data => {
-          stdout += data.toString();
-        },
-        stderr: data => {
-          stderr += data.toString();
-        }
-      }
-    };
+  // Build label objects
+  const labels = data.map(value => {
+    return value.name;
+  });
 
-    const code = await _exec(command, undefined, options);
+  core.debug(`Labels: ${JSON.stringify(labels)}`);
 
+  return labels;
+}
+
+/**
+ * Fetches the tags in the repository from github
+ * @param {*} octokit Octokit object
+ * @param {string} owner The owner name of the repository
+ * @param {string} repo The name of the repository
+ * @returns Array of tag objects. tag { name, commit }
+ */
+async function fetchTags(octokit, owner, repo) {
+  const { data } = await octokit.rest.repos.listTags({
+    owner,
+    repo
+  });
+
+  // Build tags objects
+  const tags = data.map(value => {
     return {
-      code,
-      stdout,
-      stderr
+      name: value.name,
+      commit: value.commit.sha
     };
-  } catch (err) {
-    return {
-      code: 1,
-      stdout,
-      stderr,
-      error: err
-    };
+  });
+
+  core.debug(`Tags: ${JSON.stringify(tags)}`);
+
+  return tags;
+}
+
+/**
+ * Fetches the releases in the repository from github
+ * @param {*} octokit Octokit object
+ * @param {string} owner The owner name of the repository
+ * @param {string} repo The name of the repository
+ * @returns Array of release objects. release { name, draft, prerelease, latest }
+ */
+async function fetchReleases(octokit, owner, repo) {
+  const { data: releasesData } = await octokit.rest.repos.listReleases({
+    owner,
+    repo
+  });
+
+  let latestName = '';
+  if (releasesData.length > 0) {
+    const { data: latestData } = await octokit.rest.repos.getLatestRelease({
+      owner,
+      repo
+    });
+    latestName = latestData.tag_name;
   }
+
+  // Build release objects
+  const releases = releasesData.map(value => {
+    return {
+      name: value.tag_name,
+      draft: value.draft,
+      prerelease: value.prerelease,
+      latest: value.tag_name === latestName
+    };
+  });
+
+  core.debug(`Releases: ${JSON.stringify(releases)}`);
+
+  return releases;
 }
 
 /**
@@ -33486,119 +33541,77 @@ async function exec(command) {
  */
 async function run() {
   try {
+    // Get the inputs from workflow
     const github_token = core.getInput('github_token', { required: true });
     const owner = core.getInput('owner', { required: true });
-    const repository = core.getInput('repository', { required: true });
+    const repo = core.getInput('repository', { required: true });
     const pr_number = core.getInput('pr_number', { required: true });
     const label_major = core.getInput('label_major', { required: false });
     const label_minor = core.getInput('label_minor', { required: false });
     const label_patch = core.getInput('label_patch', { required: false });
-    const label_beta = core.getInput('label_beta', { required: false });
-    const label_alpha = core.getInput('label_alpha', { required: false });
     const label_docs = core.getInput('label_docs', { required: false });
     const tag_prefix = core.getInput('tag_prefix', { required: false });
     const dry_run = core.getInput('dry_run', { required: false });
 
     const { GITHUB_REF, GITHUB_SHA } = process.env;
 
+    // Check all requiered inputs present
     if (!GITHUB_REF) {
       core.setFailed('Missing GITHUB_REF');
       return;
     }
+    core.debug(`GITHUB_REF: ${GITHUB_REF}`);
 
     if (!GITHUB_SHA) {
       core.setFailed('Missing GITHUB_SHA');
       return;
     }
+    core.debug(`GITHUB_SHA: ${GITHUB_SHA}`);
 
-    core.debug(GITHUB_REF);
-    core.debug(GITHUB_SHA);
-
-    await exec('git fetch --tags');
-
-    const hasTag = !!(await exec('git tag')).stdout.trim();
-    let tag = '';
-
-    if (hasTag) {
-      const previousTagSha = (
-        await exec('git rev-list --tags --topo-order --max-count=1')
-      ).stdout.trim();
-      tag = (await exec(`git describe --tags ${previousTagSha}`)).stdout.trim();
-
-      core.debug(`Previous tag is: ${tag}`);
-
-      if (previousTagSha === GITHUB_SHA) {
-        core.info('No new commits since previous tag. Skipping...');
-        return;
-      }
-    } else {
-      tag = '0.0.0';
-
-      core.debug('No previous tag.');
-    }
-
+    // Octokit rest api (https://octokit.github.io/rest.js)
     const octokit = new github.getOctokit(github_token);
 
-    const { data: labels } = await octokit.rest.issues.listLabelsOnIssue({
-      owner,
-      repo: repository,
-      issue_number: pr_number
-    });
+    // Fetch labels on pull request
+    const labels = await fetchLabelsOnIssue(octokit, owner, repo, pr_number);
 
-    const labelsNames = labels.map(value => {
-      return value.name;
-    });
-
-    core.debug(`Labels at pull request: ${labelsNames}`);
-
+    let previousVersion = '';
     let bump = '';
-    let identifier = '';
 
     // Is major change
-    if (labelsNames.includes(label_major)) {
-      if (labelsNames.includes(label_beta)) {
-        bump = 'premajor';
-        identifier = 'beta';
-      } else if (labelsNames.includes(label_alpha)) {
-        bump = 'premajor';
-        identifier = 'alpha';
-      } else {
-        bump = 'major';
-      }
+    if (label_major && labels.includes(label_major)) {
+      bump = 'major';
     }
     // Is minor change
-    else if (labelsNames.includes(label_minor)) {
-      if (labelsNames.includes(label_beta)) {
-        bump = 'preminor';
-        identifier = 'beta';
-      } else if (labelsNames.includes(label_alpha)) {
-        bump = 'preminor';
-        identifier = 'alpha';
-      } else {
-        bump = 'minor';
-      }
+    else if (label_minor && labels.includes(label_minor)) {
+      bump = 'minor';
     }
     // Is patch change
-    else if (labelsNames.includes(label_patch)) {
-      if (labelsNames.includes(label_beta)) {
-        bump = 'prepatch';
-        identifier = 'beta';
-      } else if (labelsNames.includes(label_alpha)) {
-        bump = 'prepatch';
-        identifier = 'alpha';
-      } else {
-        bump = 'patch';
-      }
+    else if (label_patch && labels.includes(label_patch)) {
+      bump = 'patch';
     }
     // Is docs change
-    else if (labelsNames.includes(label_docs)) {
+    else if (label_docs && labels.includes(label_docs)) {
       core.info('Is docs change do not requiere a new version. Skipping...');
       return;
     } else {
       core.setFailed('None of the version labels are set in the pull request!');
+      return;
+    }
+    core.info(`Version change: ${bump}`);
+
+    // Fetch all releases
+    const releases = await fetchReleases(octokit, owner, repo);
+
+    if (releases.length > 0) {
+      previousVersion = releases.find(element => element.latest).name;
+      core.info(`Previous version: ${previousVersion}`);
+    } else {
+      previousVersion = 'v0.0.0';
+      core.info(`No previous tag. ${previousVersion}`);
     }
 
-    const newVersion = `${semver.inc(tag, bump, identifier)}`;
+    // Increment version
+    const newVersion = `${semver.inc(previousVersion, bump)}`;
     const newTag = `${tag_prefix}${newVersion}`;
 
     core.info(`New version: ${newVersion}`);
@@ -33607,11 +33620,11 @@ async function run() {
     core.setOutput('new_version', newVersion);
     core.setOutput('new_tag', newTag);
 
-    const tagAlreadyExists = !!(
-      await exec(`git tag -l "${newTag}"`)
-    ).stdout.trim();
+    // Fetch all tags
+    const tags = await fetchTags(octokit, owner, repo);
 
-    if (tagAlreadyExists) {
+    // Exist newTag allready
+    if (tags.map(value => value.name).includes(newTag)) {
       core.setFailed('This tag already exists. Skipping...');
       return;
     }
@@ -33638,6 +33651,17 @@ async function run() {
       ref: `refs/tags/${newTag}`,
       sha: tagCreateResponse.data.sha
     });
+
+    // octokit.rest.repos.createRelease({
+    //   owner,
+    //   repo,
+    //   tag_name,
+    //   name: tag_name,
+    //   draft,
+    //   prerelease,
+    //   make_latest
+    // });
+
     return;
   } catch (error) {
     // Fail the workflow run if an error occurs
