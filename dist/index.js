@@ -33447,28 +33447,37 @@ const github = __nccwpck_require__(5438);
 const semver = __nccwpck_require__(1383);
 const exec = __nccwpck_require__(1514);
 
-async function execute(commandLine, args) {
-  let out = '';
-  let error = '';
+async function execute(command) {
+  let stdout = '';
+  let stderr = '';
 
-  const options = {
-    listeners: {
-      stdout: data => {
-        out += data.toString();
-      },
-      stderr: data => {
-        error += data.toString();
+  try {
+    const options = {
+      listeners: {
+        stdout: data => {
+          stdout += data.toString();
+        },
+        stderr: data => {
+          stderr += data.toString();
+        }
       }
-    }
-  };
+    };
 
-  await exec.exec(commandLine, args, options);
+    const code = await exec(command, undefined, options);
 
-  if (error !== '') {
-    core.setFailed(error);
+    return {
+      code,
+      stdout,
+      stderr
+    };
+  } catch (err) {
+    return {
+      code: 1,
+      stdout,
+      stderr,
+      error: err
+    };
   }
-
-  return out;
 }
 
 /**
@@ -33697,10 +33706,10 @@ async function run() {
       core.debug('No previous tag.');
     }
 
-    const resFetch = await execute('git', ['fetch', '--tags']);
-    core.info(resFetch);
-    const resTag = await execute('git', ['describe', '--tags', ' --abbrev=0']);
-    core.info(resTag);
+    const resFetch = await execute('git fetch --tags');
+    core.info(JSON.stringify(resFetch));
+    const resTag = await execute('git describe --tags --abbrev=0');
+    core.info(JSON.stringify(resTag));
 
     core.info(`Previous version: ${previousVersion}`); // debug
 
