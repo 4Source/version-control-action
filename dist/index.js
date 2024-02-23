@@ -33597,18 +33597,20 @@ async function run() {
       core.setFailed('None of the version labels are set in the pull request!');
       return;
     }
+    core.info(`Version change: ${bump}`);
 
     // Fetch all releases
     const releases = await fetchReleases(octokit, owner, repo);
 
     if (releases.length > 0) {
       previousVersion = releases.find(element => element.latest).name;
-      core.debug(`Previous version: ${previousVersion}`);
+      core.info(`Previous version: ${previousVersion}`);
     } else {
       previousVersion = 'v0.0.0';
-      core.debug(`No previous tag. ${previousVersion}`);
+      core.info(`No previous tag. ${previousVersion}`);
     }
 
+    // Increment version
     const newVersion = `${semver.inc(previousVersion, bump)}`;
     const newTag = `${tag_prefix}${newVersion}`;
 
