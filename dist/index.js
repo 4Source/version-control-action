@@ -32315,7 +32315,10 @@ async function run() {
     const github_token = core.getInput('github_token', { required: true });
     const owner = core.getInput('owner', { required: true });
     const repo = core.getInput('repository', { required: true });
-    const pr_number = core.getInput('pr_number', { required: true });
+    const pr_number = core.getInput('pr_number', { required: false });
+    const version_increase = core.getInput('version_increase', {
+      required: false
+    });
     const label_major = core.getInput('label_major', { required: false });
     const label_minor = core.getInput('label_minor', { required: false });
     const label_patch = core.getInput('label_patch', { required: false });
@@ -32342,31 +32345,42 @@ async function run() {
     const octokit = new github.getOctokit(github_token);
 
     // Fetch labels on pull request
-    const labels = await fetchLabelsOnIssue(octokit, owner, repo, pr_number);
-
     let previousVersion = '';
     let bump = '';
+    if (pr_number !== '') {
+      const labels = await fetchLabelsOnIssue(octokit, owner, repo, pr_number);
 
-    // Is major change
-    if (label_major && labels.includes(label_major)) {
-      bump = 'major';
-    }
-    // Is minor change
-    else if (label_minor && labels.includes(label_minor)) {
-      bump = 'minor';
-    }
-    // Is patch change
-    else if (label_patch && labels.includes(label_patch)) {
-      bump = 'patch';
-    }
-    // Is docs change
-    else if (label_docs && labels.includes(label_docs)) {
-      core.info('Is docs change do not requiere a new version. Skipping...');
-      return;
+      // Is major change
+      if (label_major && labels.includes(label_major)) {
+        bump = 'major';
+      }
+      // Is minor change
+      else if (label_minor && labels.includes(label_minor)) {
+        bump = 'minor';
+      }
+      // Is patch change
+      else if (label_patch && labels.includes(label_patch)) {
+        bump = 'patch';
+      }
+      // Is docs change
+      else if (label_docs && labels.includes(label_docs)) {
+        core.info('Is docs change do not requiere a new version. Skipping...');
+        return;
+      } else {
+        core.setFailed(
+          'None of the version labels are set in the pull request!'
+        );
+        return;
+      }
+    } else if (version_increase !== '') {
+      bump = version_increase;
+      if (bump !== 'major' || bump !== 'minor' || bump !== 'patch') {
+        core.setFailed('Entered "version_increase" is not major/minor/patch');
+      }
     } else {
-      core.setFailed('None of the version labels are set in the pull request!');
-      return;
+      core.setFailed('Requieres "version_increase" or "pr_number"');
     }
+
     core.info(`Version change: ${bump}`);
 
     // Fetch all releases
