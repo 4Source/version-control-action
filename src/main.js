@@ -161,7 +161,7 @@ async function run() {
       }
     } else if (version_increase !== '') {
       bump = version_increase;
-      if (bump !== 'major' || bump !== 'minor' || bump !== 'patch') {
+      if (!(bump === 'major' || bump === 'minor' || bump === 'patch')) {
         core.setFailed('Entered "version_increase" is not major/minor/patch');
       }
     } else {
